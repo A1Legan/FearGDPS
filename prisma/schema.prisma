@@ -1,0 +1,410 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────
+// ПЛАТФОРМЕННЫЙ АККАУНТ
+// ─────────────────────────────────────────
+
+model User {
+  id         String       @id @default(uuid())
+  username   String       @unique
+  nickname   String?
+  email      String       @unique
+  password   String
+  avatar     String?
+  level      Int          @default(1)
+  role       PlatformRole @default(USER)
+  createdAt  DateTime     @default(now())
+  reputation Int          @default(0)
+
+  newsFilter NewsFilter?
+  gdProfile  GDProfile?
+}
+
+enum PlatformRole {
+  USER
+  SLAYER
+  CREATOR
+  NEWSMAKER
+  LIST_MANAGER
+  MODERATOR
+  ELDER_MODERATOR
+  DISCORD_MODERATOR
+  DISCORD_ELDER_MODERATOR
+  ADMIN
+  VIBECODER
+  CODER
+  PARTNER
+  CO_OWNER
+  OWNER
+}
+
+model NewsFilter {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  gdSlayers  Boolean @default(true)
+  gdCreators Boolean @default(true)
+  gdEvents   Boolean @default(true)
+
+  siteUpdates  Boolean @default(true)
+  siteFeatures Boolean @default(true)
+  siteSettings Boolean @default(true)
+
+  hostingDowntimes Boolean @default(true)
+  hostingStats     Boolean @default(true)
+  hostingFeatures  Boolean @default(true)
+}
+
+// ─────────────────────────────────────────
+// GEOMETRY DASH
+// ─────────────────────────────────────────
+
+model GDProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  gdLogin    String @unique
+  gdPassword String
+  isHidden   Boolean @default(false)
+
+  // Статистика
+  stars         Int @default(0)
+  moons         Int @default(0)
+  demonCount    Int @default(0)
+  creatorPoints Int @default(0)
+  coins         Int @default(0)
+  userCoins     Int @default(0)
+  diamonds      Int @default(0)
+  orbs          Int @default(0)
+
+  // Косметика
+  iconType    Int     @default(0)
+  cube        Int     @default(1)
+  ship        Int     @default(1)
+  ball        Int     @default(1)
+  ufo         Int     @default(1)
+  wave        Int     @default(1)
+  robot       Int     @default(1)
+  spider      Int     @default(1)
+  swing       Int     @default(1)
+  jetpack     Int     @default(1)
+  explosion   Int     @default(1)
+  color1      Int     @default(0)
+  color2      Int     @default(3)
+  color3      Int     @default(0)
+  glowEnabled Boolean @default(false)
+
+  // Настройки приватности
+  messageState Int @default(0) // 0=all, 1=friends, 2=off
+  friendState  Int @default(0) // 0=all, 1=off
+  commentState Int @default(0) // 0=all, 1=friends, 2=off
+
+  // Мета
+  level            Int     @default(1)
+  timeOnProject    Int     @default(0)
+  leaderboardPos   Int?
+  bannedFromBoards Boolean @default(false)
+  isBanned         Boolean @default(false)
+  role             GDRole  @default(PLAYER)
+
+  // Резервная копия прогресса
+  saveData  String? @db.Text
+  saveData2 String? @db.Text  // CCLocalLevels (уровни редактора)
+
+  // Сундуки
+  lastSmallChest  DateTime?
+  lastLargeChest  DateTime?
+  smallChestCount Int @default(0)
+  largeChestCount Int @default(0)
+
+  // Связи
+  friends                 GDFriendship[]     @relation("GDFriendFrom")
+  friendRequests          GDFriendship[]     @relation("GDFriendTo")
+  sentMessages            GDMessage[]        @relation("GDMessageFrom")
+  receivedMessages        GDMessage[]        @relation("GDMessageTo")
+  demons                  GDDemon[]
+  completedLevels         GDCompletedLevel[]
+  uploadedLevels          GDLevel[]
+  profileComments         GDProfileComment[] @relation("ProfileCommentTarget")
+  authoredProfileComments GDProfileComment[] @relation("ProfileCommentAuthor")
+  levelComments           GDLevelComment[]
+  eventResults            GDEventResult[]
+  levelLists              GDLevelList[]
+  levelScores             GDLevelScore[]
+}
+
+enum GDRole {
+  PLAYER
+  SLAYER
+  CREATOR
+  NEWSMAKER
+  LIST_MANAGER
+  MODERATOR
+  ELDER_MODERATOR
+  DISCORD_MODERATOR
+  DISCORD_ELDER_MODERATOR
+  ADMIN
+  VIBECODER
+  CODER
+  PARTNER
+  CO_OWNER
+  OWNER
+}
+
+model GDFriendship {
+  id        String       @id @default(uuid())
+  fromId    String
+  toId      String
+  from      GDProfile    @relation("GDFriendFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to        GDProfile    @relation("GDFriendTo", fields: [toId], references: [id], onDelete: Cascade)
+  status    FriendStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+
+  @@unique([fromId, toId])
+}
+
+enum FriendStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+// Рекорды внутри уровня (внутриуровневый лидерборд по проценту прохождения)
+model GDLevelScore {
+  id        String    @id @default(uuid())
+  levelId   Int
+  profileId String
+  profile   GDProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  percent   Int       @default(0)
+  coins     Int       @default(0)
+  attempts  Int       @default(0)
+  updatedAt DateTime  @updatedAt
+
+  @@unique([levelId, profileId])
+}
+
+// Уровни (Int id — GD работает с числовыми ID)
+model GDLevel {
+  id        Int       @id @default(autoincrement())
+  profileId String
+  profile   GDProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String @default("")
+  levelData   String @db.Text
+  version     Int    @default(1)
+  length      Int    @default(0) // 0=tiny 1=short 2=medium 3=long 4=xl 5=platformer
+  objects     Int    @default(0)
+
+  // Рейтинг
+  stars      Int     @default(0)
+  difficulty Int     @default(0) // 0=unrated 10=easy 20=normal 30=hard 40=harder 50=insane
+  isDemon    Boolean @default(false)
+  demonDiff  Int     @default(3) // 0=extreme 3=hard 4=easy 5=medium 6=insane
+  isAuto     Boolean @default(false)
+  isRated    Boolean @default(false)
+  isSent     Boolean @default(false) // игрок отправил на оценку (Sent queue)
+  isEpic     Int     @default(0) // 0=none 1=featured 2=epic 3=legendary 4=mythic
+  originalId Int     @default(0) // 0=оригинал, >0=ID уровня-источника (копия)
+
+  // Запрошенные звёзды (от создателя)
+  requestedStars Int @default(0)
+
+  // Голоса обычных игроков за сложность (скользящее среднее) —
+  // значок сложности (requestedStars) выставляется только после voteCount >= 5
+  voteSum   Int @default(0)
+  voteCount Int @default(0)
+
+  // Монеты
+  coins         Int     @default(0)
+  verifiedCoins Boolean @default(false)
+
+  // Статистика
+  downloads Int @default(0)
+  likes     Int @default(0)
+
+  // Музыка
+  songId       Int @default(0)
+  customSongId Int @default(0)
+
+  // Прочее
+  password  String  @default("0")
+  twoPlayer Boolean @default(false)
+  isUnlisted Boolean @default(false)
+  isHidden  Boolean @default(false)
+  isDeleted  Boolean @default(false)
+  extra     String  @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  comments  GDLevelComment[]
+  dailySlots GDDailyLevel[]
+}
+
+// Комментарии к уровням
+model GDLevelComment {
+  id        Int       @id @default(autoincrement())
+  levelId   Int
+  level     GDLevel   @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  profileId String
+  profile   GDProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  content   String
+  percent   Int     @default(0)
+  likes     Int     @default(0)
+  isSpam    Boolean @default(false)
+  isDeleted Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Посты на профиле
+model GDProfileComment {
+  id        Int       @id @default(autoincrement())
+  profileId String
+  profile   GDProfile @relation("ProfileCommentTarget", fields: [profileId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    GDProfile @relation("ProfileCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  content   String
+  likes     Int     @default(0)
+  isSpam    Boolean @default(false)
+  isDeleted Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Личные сообщения
+model GDMessage {
+  id     Int       @id @default(autoincrement())
+  fromId String
+  from   GDProfile @relation("GDMessageFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  toId   String
+  to     GDProfile @relation("GDMessageTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  subject   String
+  body      String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Daily / Weekly / Event уровни
+model GDDailyLevel {
+  id        Int      @id @default(autoincrement())
+  levelId   Int
+  level     GDLevel  @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  type      Int      // 0=daily 1=weekly 2=event
+  number    Int      @default(0)
+  createdAt DateTime @default(now())
+  activatedAt DateTime?
+}
+
+// Гантлеты
+model GDGauntlet {
+  id       Int    @id           // GD ID гантлета (1-50 официальные)
+  levelIds String               // 5 ID уровней через запятую
+}
+
+// Маппаки
+model GDMapPack {
+  id         Int    @id @default(autoincrement())
+  name       String
+  levelIds   String               // 3 ID уровней через запятую
+  stars      Int    @default(0)
+  coins      Int    @default(3)
+  difficulty Int    @default(0)   // 0=unrated 1=easy 2=normal 3=hard 4=harder 5=insane 6=demon
+  color1     String @default("255,255,255")
+  color2     String @default("255,255,255")
+}
+
+// Списки уровней (GD 2.2+: getGJLevelLists / uploadGJLevelList)
+model GDLevelList {
+  id          Int       @id @default(autoincrement())
+  profileId   String
+  profile     GDProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String    @default("")
+  levelIds    String    @default("")   // ID уровней через запятую
+  version     Int       @default(1)
+  likes       Int       @default(0)
+  downloads   Int       @default(0)
+  difficulty  Int       @default(-1)   // -1=N/A, 0=auto, 1=easy..5=insane, 6-10=demon
+  isRated     Boolean   @default(false) // выставлено модератором
+  diamonds    Int       @default(0)    // награда алмазами
+  isPublic    Boolean   @default(true)
+  isDeleted   Boolean   @default(false)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model GDDemon {
+  id          String          @id @default(uuid())
+  gdProfileId String
+  gdProfile   GDProfile       @relation(fields: [gdProfileId], references: [id], onDelete: Cascade)
+
+  levelName     String
+  demonlistRank Int
+  difficulty    DemonDifficulty
+}
+
+enum DemonDifficulty {
+  EASY
+  MEDIUM
+  HARD
+  INSANE
+  EXTREME
+}
+
+model GDCompletedLevel {
+  id          String          @id @default(uuid())
+  gdProfileId String
+  gdProfile   GDProfile       @relation(fields: [gdProfileId], references: [id], onDelete: Cascade)
+
+  levelName  String
+  difficulty LevelDifficulty
+}
+
+enum LevelDifficulty {
+  AUTO
+  EASY
+  NORMAL
+  HARD
+  HARDER
+  INSANE
+}
+
+model GDEventResult {
+  id          String    @id @default(uuid())
+  gdProfileId String
+  gdProfile   GDProfile @relation(fields: [gdProfileId], references: [id], onDelete: Cascade)
+
+  eventName String
+  place     Int
+}
+
+// Кастомные песни для GDPS (загружаются через сайт → Google Drive)
+model GDSong {
+  id          String   @id @default(uuid())
+  gdId        Int      @unique              // ID, который вводит игрок в GD
+  name        String
+  description String?                       // краткое описание (необязательно)
+  artistName  String   @default("Unknown")
+  artistId    Int      @default(0)
+  downloadUrl String                        // прямая ссылка для скачивания (Google Drive / иное)
+  fileSize    String   @default("0.00")     // размер в МБ (строка для протокола GD)
+  driveFileId String?                       // ID файла в Google Drive (для управления)
+  source      String   @default("upload")  // "upload" | "youtube" | "soundcloud" | "url"
+  createdAt   DateTime @default(now())
+}
+

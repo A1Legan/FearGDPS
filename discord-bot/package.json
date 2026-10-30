@@ -1,0 +1,22 @@
+{
+  "name": "alphazero-ts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "clean": "rm -rf build",
+    "build": "bunx tsc --build",
+    "start": "bun run clean && bun run build && bun build/index.js",
+    "startNoClean": "bun run build && bun build/index.js",
+    "preview": "bun run src/event/rates/preview.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.2",
+    "@resvg/resvg-js": "^2.6.2",
+    "discord.js": "^14.26.4"
+  }
+}

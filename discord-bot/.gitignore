@@ -1,0 +1,14 @@
+# Зависимости
+node_modules/
+discord-bot/data/config.json
+
+# Сборка
+build/
+*.tsbuildinfo
+
+# Данные
+data/json/
+data/_backup_*/
+
+# Прочее
+*.log
